@@ -1,7 +1,4 @@
 import express from "express";
-import {
-  application
-} from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
 
@@ -17,32 +14,104 @@ const pool = mysql.createPool({
 
 const app = express();
 
-app.use(express.json()); // Postman 사용가능
+app.use(express.json()); // Postman 사용
 
 const corsOptions = {
   origin: "https://cdpn.io",
   optionsSuccessStatus: 200, // some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
-app.use(cors(corsOptions));
+app.use(cors(corsOptions)); // cors 사용
 
 const port = 3000;
 
+// 수정patch
+app.patch("/wiseSayings/:id", async (req, res) => {
+  const { id } = req.params;
+  const [[wiseSayingRow]] = await pool.query(
+    `
+  SELECT *
+  FROM wise_saying
+  WHERE id = ?;
+  `,
+    [id]
+  );
+
+  if (wiseSayingRow === undefined) {
+    res.status(404).json({
+      resultCode: "F-1",
+      msg: "404 not found",
+    });
+    return;
+  }
+
+  const {
+    content = wiseSayingRow.content,
+    figure = wiseSayingRow.figure,
+    like_it = wiseSayingRow.like_it,
+    hate_it = wiseSayingRow.hate_it,
+  } = req.body;
+
+  await pool.query(
+    `
+    UPDATE wise_saying
+    SET content = ?,
+    figure = ?,
+    like_it = ?,
+    hate_it = ?
+    WHERE id = ?
+    `,
+    [content, figure, like_it, hate_it, id]
+  );
+
+  const [[justModifiedWiseSayingRow]] = await pool.query(
+    `
+  SELECT *
+  FROM wise_saying
+  WHERE id = ?;
+  `,
+    [id]
+  );
+
+  res.json({
+    resultCode: "S-1",
+    msg: "성공",
+    data: justModifiedWiseSayingRow,
+  });
+});
+
 // 랜덤조회GET
-app.get("/wiseSayings", async (req, res) => {
-  const [[rows]] = await pool.query(`
+app.get("/wiseSayings/random", async (req, res) => {
+  const [[wiseSayingRow]] = await pool.query(`
   SELECT * 
   FROM wise_saying 
   ORDER BY RAND() LIMIT 1;
   `);
 
-  await pool.query(`
-  UPDATE wise_saying
-  SET hits = hits + 1
-  WHERE id = ?;
-  `, [rows.id]);
+  if (wiseSayingRow === undefined) {
+    res.status(404).json({
+      resultCode: "F-1",
+      msg: "404 not found",
+    });
+    return;
+  }
 
-  res.json([rows]);
+  wiseSayingRow.hits++;
+
+  await pool.query(
+    `
+  UPDATE wise_saying
+  SET hits = ?
+  WHERE id = ?;
+  `,
+    [wiseSayingRow.hits, wiseSayingRow.id]
+  );
+
+  res.json({
+    resultCode: "S-1",
+    msg: "성공",
+    data: wiseSayingRow,
+  });
 });
 
 app.listen(port, () => {

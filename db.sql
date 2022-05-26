@@ -53,3 +53,11 @@ SET hits = hits + 1
 WHERE id = 1;
 
 SELECT * FROM wise_saying;
+
+ALTER TABLE wise_saying
+ADD COLUMN like_it INT UNSIGNED NOT NULL;
+
+ALTER TABLE wise_saying
+ADD COLUMN hate_it INT UNSIGNED NOT NULL;
+
+DESC wise_saying;
